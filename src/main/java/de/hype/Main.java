@@ -139,8 +139,14 @@ public class Main {
 
     private static void focusIntelliJWindow(String projectName, String redirectUrl) {
         try {
+            // Validate and sanitize inputs
+            if (!isValidProjectName(projectName) || !isValidUrl(redirectUrl)) {
+                throw new IllegalArgumentException("Invalid project name or URL");
+            }
+
             // Search for windows with the class 'idea' and get their IDs
-            Process searchProcess = Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -lx | grep 'idea'"});
+            ProcessBuilder searchBuilder = new ProcessBuilder("bash", "-c", "wmctrl -lx | grep 'idea'");
+            Process searchProcess = searchBuilder.start();
             BufferedReader searchReader = new BufferedReader(new InputStreamReader(searchProcess.getInputStream()));
             String line;
             Set<String> windowIds = new HashSet<>();
@@ -155,7 +161,8 @@ public class Main {
             // Store the original "always on top" state of all IntelliJ windows
             Map<String, Boolean> originalStates = new HashMap<>();
             for (String id : windowIds) {
-                Process stateProcess = Runtime.getRuntime().exec(new String[]{"bash", "-c", "xprop -id " + id + " | grep '_NET_WM_STATE_ABOVE'"});
+                ProcessBuilder stateBuilder = new ProcessBuilder("bash", "-c", "xprop -id " + id + " | grep '_NET_WM_STATE_ABOVE'");
+                Process stateProcess = stateBuilder.start();
                 BufferedReader stateReader = new BufferedReader(new InputStreamReader(stateProcess.getInputStream()));
                 boolean isAlwaysOnTop = stateReader.readLine() != null;
                 originalStates.put(id, isAlwaysOnTop);
@@ -164,19 +171,20 @@ public class Main {
 
             // Remove "always on top" state from all IntelliJ windows
             for (String id : windowIds) {
-                Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -i -r " + id + " -b remove,above"});
+                new ProcessBuilder("bash", "-c", "wmctrl -i -r " + id + " -b remove,above").start();
             }
 
             // Set the target window to "always on top" and activate it
             String projectWindowId = null;
             for (String id : windowIds) {
-                Process nameProcess = Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -l -G -p -x | grep " + id});
+                ProcessBuilder nameBuilder = new ProcessBuilder("bash", "-c", "wmctrl -l -G -p -x | grep " + id);
+                Process nameProcess = nameBuilder.start();
                 BufferedReader nameReader = new BufferedReader(new InputStreamReader(nameProcess.getInputStream()));
                 String windowName = nameReader.readLine();
                 if (windowName != null && windowName.contains(projectName)) {
                     projectWindowId = id;
-                    Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -i -r " + id + " -b add,above"});
-                    Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -i -a " + id});
+                    new ProcessBuilder("bash", "-c", "wmctrl -i -r " + id + " -b add,above").start();
+                    new ProcessBuilder("bash", "-c", "wmctrl -i -a " + id).start();
                     break;
                 }
                 nameProcess.waitFor();
@@ -187,25 +195,37 @@ public class Main {
 
             // Close the new tab after a delay
             if (projectWindowId != null)
-                Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -i -a " + projectWindowId});
+                new ProcessBuilder("bash", "-c", "wmctrl -i -a " + projectWindowId).start();
 
             Thread.sleep(2000); // Adjust the delay as needed
             // Restore the original "always on top" state of all IntelliJ windows
             for (Map.Entry<String, Boolean> entry : originalStates.entrySet()) {
                 if (entry.getValue()) {
-                    Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -i -r " + entry.getKey() + " -b add,above"});
+                    new ProcessBuilder("bash", "-c", "wmctrl -i -r " + entry.getKey() + " -b add,above").start();
                 } else {
-                    Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -i -r " + entry.getKey() + " -b remove,above"});
+                    new ProcessBuilder("bash", "-c", "wmctrl -i -r " + entry.getKey() + " -b remove,above").start();
                 }
             }
             if (projectWindowId != null)
-                Runtime.getRuntime().exec(new String[]{"bash", "-c", "wmctrl -i -a " + projectWindowId});
+                new ProcessBuilder("bash", "-c", "wmctrl -i -a " + projectWindowId).start();
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    private static boolean isValidProjectName(String projectName) {
+        return projectName != null && projectName.matches("^[a-zA-Z0-9_-]+$");
+    }
+
+    private static boolean isValidUrl(String url) {
+        try {
+            new java.net.URI(url);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
     private static String checkRequiredTools() {
         String[] tools = {"xdotool", "wmctrl"};
         List<String> missingTools = new ArrayList<>();
