@@ -12,5 +12,7 @@ linux. wmcrtl and xdotool are used for focusing the right window when opening si
 
 Keep in mind that I hacked this together relatively quickly with low effort, but wanted to publish this as a small useful gadget. I will NOT maintain this, but merge pull requests that I see a Reason for.
 
+WARNING: This thing will automatically inject itself into startup for convenience. for details check the code itself.
+
 If you want something etc make it yourself and make a pr. Make sure its generally useful and not specific for you only (
 aka no project binding etc)
