@@ -17,6 +17,9 @@ aka no project binding etc)
 - This tool is low effort and might be insecure. I tried to avoid command injections. (also localhost only)
 - This tool depends on wmcrtl and xdotool (install via `apt install wmcrtl xdotool`) as well as [Jetbrains Toolbox](<https://www.jetbrains.com/de-de/lp/toolbox/>)
 
+
+
 Example Usage:
-  ![grafik](https://github.com/user-attachments/assets/b54020f3-6f59-4b51-b5e7-2c519c643109)
-  If you click these links they will be opened in your local intelij. I unfortunately can't support dependencies.
+If you click these links they will be opened in your local intelij. I unfortunately can't support dependencies.
+
+![grafik](https://github.com/user-attachments/assets/b54020f3-6f59-4b51-b5e7-2c519c643109)
