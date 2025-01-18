@@ -11,6 +11,7 @@ If you want something etc make it yourself and make a pr. Make sure its generall
 aka no project binding etc)
 
 ## IMPORTANT:
+- This tool is probably linux only. I do NOT care about windows or mac. go get a good OS.
 - This tool injects itself into auto start for convenience
 - This tool will intercept all http and https links opened with xdg-open internally (aka when you clik a löink and it opens in browser). all links but localhost 9090 are forwarded to the default that was previous with https. 9090 is silently dropped and sent via curl which means that you dont get the annoying popup that instantly closes in your browser.
 - This tool is low effort and might be insecure. I tried to avoid command injections. (also localhost only)
