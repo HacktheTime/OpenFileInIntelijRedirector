@@ -297,12 +297,12 @@ public class Main {
                     [Desktop Entry]
                     Type=Application
                     Name=Hypes Intellij File Opener
-                    Exec=java -Dprogram.name=HypeIntelliJServer -jar /home/spieler/IdeaProjects/OpenFileInIntelijRedirector/build/classes/java/main
+                    Exec=java -Dprogram.name=HypeIntelliJServer -jar %s
                     X-GNOME-Autostart-enabled=true
                     X-KDE-autostart-after=panel
                     StartupNotify=false
                     Terminal=false
-                    """;
+                    """.formatted(jarPath);
 
             Files.write(desktopFile, content.getBytes());
             Files.setPosixFilePermissions(desktopFile, new HashSet<>(Arrays.asList(
