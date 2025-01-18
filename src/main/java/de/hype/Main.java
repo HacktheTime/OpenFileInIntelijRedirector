@@ -71,7 +71,7 @@ public class Main {
                 if (response != null) {
                     String redirectUrl = "jetbrains://idea/navigate/reference?project=" + project + "&path=" + response;
                     if (line != null) {
-                        redirectUrl += "&line=" + line;
+                        redirectUrl += ":%d".formatted(Integer.parseInt(line)-1);
                     }
 
                     // Send a response to the browser to close the tab
