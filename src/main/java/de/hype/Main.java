@@ -26,6 +26,7 @@ public class Main {
         killPrevious();
         String tools = checkRequiredTools();
         addAutostartEntry();
+        setDefaultHttpHandler();
         if (tools != null) {
             System.err.println(tools);
             System.exit(1);
@@ -316,5 +317,59 @@ public class Main {
 
     private static void showErrorPopup(String message) {
         JOptionPane.showMessageDialog(null, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private static void setDefaultHttpHandler() {
+        try {
+            System.out.println("Injecting myself into xdg mime default for http to intercept port 9090 localhost requests");
+            // Get the current default handler for HTTP
+            Process getDefaultHandlerProcess = new ProcessBuilder("xdg-mime", "query", "default", "x-scheme-handler/http").start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(getDefaultHandlerProcess.getInputStream()));
+            String previousDefaultHandler = reader.readLine();
+            getDefaultHandlerProcess.waitFor();
+            String injectorDesktopName = "http-handler.desktop";
+            if (previousDefaultHandler.equals(injectorDesktopName)){
+                System.out.println("Already injected into xdg mime default for http. Skipping.");
+                return;
+            }
+
+            // Create a script to handle HTTP URLs
+            String scriptContent = """
+                    #!/bin/bash
+                    if [[ "$1" == "http://localhost:9090"* ]]; then
+                        exit 0
+                    else
+                        %s "$1"
+                    fi
+                    """.formatted(previousDefaultHandler);
+            Path scriptPath = Paths.get(System.getProperty("user.home"), ".local", "bin", "http-handler.sh");
+            Files.createDirectories(scriptPath.getParent());
+            Files.write(scriptPath, scriptContent.getBytes());
+            Files.setPosixFilePermissions(scriptPath, new HashSet<>(Arrays.asList(
+                    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE
+            )));
+
+            // Create a .desktop file to point to the script
+            String desktopFileContent = """
+                    [Desktop Entry]
+                    Name=HTTP Handler
+                    Exec=%s %%u
+                    Type=Application
+                    MimeType=x-scheme-handler/http;
+                    """.formatted(scriptPath.toString());
+            Path desktopFilePath = Paths.get(System.getProperty("user.home"), ".local", "share", "applications", injectorDesktopName);
+            Files.createDirectories(desktopFilePath.getParent());
+            Files.write(desktopFilePath, desktopFileContent.getBytes());
+
+            // Set the .desktop file as the default handler for HTTP
+
+            // Set the script as the default handler for HTTP
+            ProcessBuilder processBuilder = new ProcessBuilder("xdg-mime", "default", desktopFilePath.toString(), "x-scheme-handler/http");
+            Process process = processBuilder.start();
+            process.waitFor();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
