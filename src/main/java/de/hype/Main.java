@@ -323,12 +323,12 @@ public class Main {
         try {
             System.out.println("Injecting myself into xdg mime default for http to intercept port 9090 localhost requests");
             // Get the current default handler for HTTP
-            Process getDefaultHandlerProcess = new ProcessBuilder("xdg-mime", "query", "default", "x-scheme-handler/http").start();
+            Process getDefaultHandlerProcess = new ProcessBuilder("xdg-mime", "query", "default", "x-scheme-handler/https").start();
             BufferedReader reader = new BufferedReader(new InputStreamReader(getDefaultHandlerProcess.getInputStream()));
             String previousDefaultHandler = reader.readLine();
             getDefaultHandlerProcess.waitFor();
             String injectorDesktopName = "http-handler.desktop";
-            if (previousDefaultHandler.equals(injectorDesktopName)){
+            if (previousDefaultHandler.equals(injectorDesktopName)) {
                 System.out.println("Already injected into xdg mime default for http. Skipping.");
                 return;
             }
@@ -337,7 +337,7 @@ public class Main {
             String scriptContent = """
                     #!/bin/bash
                     if [[ "$1" == "http://localhost:9090"* ]]; then
-                        exit 0
+                        curl "$1" > /dev/null
                     else
                         %s "$1"
                     fi
@@ -352,10 +352,10 @@ public class Main {
             // Create a .desktop file to point to the script
             String desktopFileContent = """
                     [Desktop Entry]
-                    Name=HTTP Handler
+                    Name=Hypes HTTP Handler (Intelij File Opener Injection)
                     Exec=%s %%u
                     Type=Application
-                    MimeType=x-scheme-handler/http;
+                    MimeType=x-scheme-handler/http;x-scheme-handler/https;
                     """.formatted(scriptPath.toString());
             Path desktopFilePath = Paths.get(System.getProperty("user.home"), ".local", "share", "applications", injectorDesktopName);
             Files.createDirectories(desktopFilePath.getParent());
@@ -364,7 +364,7 @@ public class Main {
             // Set the .desktop file as the default handler for HTTP
 
             // Set the script as the default handler for HTTP
-            ProcessBuilder processBuilder = new ProcessBuilder("xdg-mime", "default", desktopFilePath.toString(), "x-scheme-handler/http");
+            ProcessBuilder processBuilder = new ProcessBuilder("xdg-mime", "default", desktopFilePath.toString(), "x-scheme-handler/http", "x-scheme-handler/https");
             Process process = processBuilder.start();
             process.waitFor();
 
