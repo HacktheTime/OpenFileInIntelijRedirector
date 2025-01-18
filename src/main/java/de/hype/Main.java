@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -22,6 +23,7 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException {
+        killPrevious();
         String tools = checkRequiredTools();
         addAutostartEntry();
         if (tools != null) {
@@ -34,6 +36,27 @@ public class Main {
         server.createContext("/open", new OpenHandler());
         server.setExecutor(null);
         server.start();
+    }
+
+    private static void killPrevious() {
+        String processName = "HypeIntelliJServer";
+        long currentPid = ProcessHandle.current().pid();
+
+        // Kill any existing processes with the same name, excluding the current process
+        try {
+            Process searchProcess = new ProcessBuilder("bash", "-c", "pgrep -f " + processName).start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(searchProcess.getInputStream()));
+            String pid;
+            while ((pid = reader.readLine()) != null) {
+                if (!pid.equals(String.valueOf(currentPid))) {
+                    new ProcessBuilder("bash", "-c", "kill -9 " + pid).start();
+                    System.out.println("Terminated existing instance with PID: " + pid);
+                }
+            }
+            searchProcess.waitFor();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     static class OpenHandler implements HttpHandler {
@@ -71,7 +94,7 @@ public class Main {
                 if (response != null) {
                     String redirectUrl = "jetbrains://idea/navigate/reference?project=" + project + "&path=" + response;
                     if (line != null) {
-                        redirectUrl += ":%d".formatted(Integer.parseInt(line)-1);
+                        redirectUrl += ":%d".formatted(Integer.parseInt(line) - 1);
                     }
 
                     // Send a response to the browser to close the tab
@@ -226,6 +249,7 @@ public class Main {
             return false;
         }
     }
+
     private static String checkRequiredTools() {
         String[] tools = {"xdotool", "wmctrl"};
         List<String> missingTools = new ArrayList<>();
@@ -263,14 +287,27 @@ public class Main {
 
             // Detect the location of the currently running JAR file
             String jarPath = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
+            if (!jarPath.endsWith(".jar")) {
+                System.out.println("Not running from a JAR file, skipping autostart entry creation. (assuming development environment and not wanting to brick the location for next startup)");
+                return;
+            }
+            System.out.println("JAR path: " + jarPath);
 
-            String content = "[Desktop Entry]\n" +
-                    "Type=Application\n" +
-                    "Name=Hypes Intellij File Opener\n" +
-                    "Exec=java -jar " + jarPath + "\n" +
-                    "X-GNOME-Autostart-enabled=true\n";
+            String content = """
+                    [Desktop Entry]
+                    Type=Application
+                    Name=Hypes Intellij File Opener
+                    Exec=java -Dprogram.name=HypeIntelliJServer -jar /home/spieler/IdeaProjects/OpenFileInIntelijRedirector/build/classes/java/main
+                    X-GNOME-Autostart-enabled=true
+                    X-KDE-autostart-after=panel
+                    StartupNotify=false
+                    Terminal=false
+                    """;
 
             Files.write(desktopFile, content.getBytes());
+            Files.setPosixFilePermissions(desktopFile, new HashSet<>(Arrays.asList(
+                    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE
+            )));
             System.out.println("Autostart entry created at " + desktopFile);
         } catch (Exception e) {
             e.printStackTrace();
