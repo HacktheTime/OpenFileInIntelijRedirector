@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -92,7 +93,7 @@ public class Main {
 
             // Try exact project name match
             for (String line : windowLines) {
-                if (line.contains(projectName)) {
+                if (line.matches("%s - .*".formatted(Pattern.quote(projectName)))) {
                     targetWindowId = line.split("\\s+")[0];
                     System.out.println("Found window with project name: " + line);
                     break;
