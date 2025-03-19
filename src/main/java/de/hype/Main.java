@@ -18,6 +18,12 @@ import java.util.stream.Stream;
 public class Main {
     String exampleClass = "de.hype.bbsentials.server.discord.events.staticimplementations.commands.commands.commandgroups.bingoeventcommandgroup.Top100";
     String exampleQuery = "http://localhost:9090/open?project=BBsentials-Server&class=de.hype.bbsentials.server.discord.events.staticimplementations.commands.commands.commandgroups.bingoeventcommandgroup.Top100";
+    String exampleResourceQuery = "http://localhost:9090/openResource?project=BBsentials-Server&path=example.html"; // will search for any "example.html" in resources.
+    String exampleResourceQuery2 = "http://localhost:9090/openResource?project=BBsentials-Server&path=/templates/example.html"; // will search for any "example.html" in resources which is in a folder called templates.
+    String exampleResourceQuery3 = "http://localhost:9090/openResource?project=BBsentials-Server&path=/templates/**/example.html"; // will search for any "example.html" in resources which is in a sub path of a templates folder.
+    // /**/ means any subfolder structure from no sub folder to infinite many subfolders. /*/ means any sub folder (1 layer specifically).
+    String exampleResourceQuery4 = "http://localhost:9090/openResource?project=BBsentials-Server&regex=.*/example.html"; //regex will be applied for the search.
+    String exampleResourceQuery5 = "http://localhost:9090/openResource?project=BBsentials-Server&regex=.*\\.html"; //if a search is ambiguous it will ask you to select which one you want in a pop up.
 
     public Main() throws IOException {
     }
@@ -35,6 +41,7 @@ public class Main {
         HttpServer server = HttpServer.create(new InetSocketAddress(9090), 0);
         System.out.println("Hype Intellij Server started on port 9090");
         server.createContext("/open", new OpenHandler());
+        server.createContext("/openResource", new OpenResourceHandler());
         server.setExecutor(null);
         server.start();
     }
