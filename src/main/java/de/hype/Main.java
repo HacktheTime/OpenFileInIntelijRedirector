@@ -81,7 +81,7 @@ public class Main {
 
             for (String param : params) {
                 if (param.startsWith("class=")) {
-                    className = param.substring(6);
+                    className = param.substring(6).split("\\$")[0];
                 } else if (param.startsWith("project=")) {
                     project = param.substring(8);
                 } else if (param.startsWith("line=")) {
@@ -163,79 +163,104 @@ public class Main {
 
     private static void focusIntelliJWindow(String projectName, String redirectUrl) {
         try {
-            // Validate and sanitize inputs
             if (!isValidProjectName(projectName) || !isValidUrl(redirectUrl)) {
                 throw new IllegalArgumentException("Invalid project name or URL");
             }
 
-            // Search for windows with the class 'idea' and get their IDs
-            ProcessBuilder searchBuilder = new ProcessBuilder("bash", "-c", "wmctrl -lx | grep 'idea'");
-            Process searchProcess = searchBuilder.start();
-            BufferedReader searchReader = new BufferedReader(new InputStreamReader(searchProcess.getInputStream()));
-            String line;
-            Set<String> windowIds = new HashSet<>();
-            while ((line = searchReader.readLine()) != null) {
-                String[] parts = line.split("\\s+");
-                if (parts.length > 0) {
-                    windowIds.add(parts[0]);
+            // Find the target IntelliJ window
+            String targetWindowId = null;
+            Process wmctrlProcess = new ProcessBuilder("bash", "-c", "wmctrl -l").start();
+            List<String> windowLines = new ArrayList<>();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(wmctrlProcess.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    windowLines.add(line);
                 }
             }
-            searchProcess.waitFor();
+            wmctrlProcess.waitFor();
 
-            // Store the original "always on top" state of all IntelliJ windows
-            Map<String, Boolean> originalStates = new HashMap<>();
-            for (String id : windowIds) {
-                ProcessBuilder stateBuilder = new ProcessBuilder("bash", "-c", "xprop -id " + id + " | grep '_NET_WM_STATE_ABOVE'");
-                Process stateProcess = stateBuilder.start();
-                BufferedReader stateReader = new BufferedReader(new InputStreamReader(stateProcess.getInputStream()));
-                boolean isAlwaysOnTop = stateReader.readLine() != null;
-                originalStates.put(id, isAlwaysOnTop);
-                stateProcess.waitFor();
-            }
-
-            // Remove "always on top" state from all IntelliJ windows
-            for (String id : windowIds) {
-                new ProcessBuilder("bash", "-c", "wmctrl -i -r " + id + " -b remove,above").start();
-            }
-
-            // Set the target window to "always on top" and activate it
-            String projectWindowId = null;
-            for (String id : windowIds) {
-                ProcessBuilder nameBuilder = new ProcessBuilder("bash", "-c", "wmctrl -l -G -p -x | grep " + id);
-                Process nameProcess = nameBuilder.start();
-                BufferedReader nameReader = new BufferedReader(new InputStreamReader(nameProcess.getInputStream()));
-                String windowName = nameReader.readLine();
-                if (windowName != null && windowName.contains(projectName)) {
-                    projectWindowId = id;
-                    new ProcessBuilder("bash", "-c", "wmctrl -i -r " + id + " -b add,above").start();
-                    new ProcessBuilder("bash", "-c", "wmctrl -i -a " + id).start();
+            // Try exact project name match
+            for (String line : windowLines) {
+                if (line.contains(projectName)) {
+                    targetWindowId = line.split("\\s+")[0];
+                    System.out.println("Found window with project name: " + line);
                     break;
                 }
-                nameProcess.waitFor();
             }
 
-            // Open the file link
-            java.awt.Desktop.getDesktop().browse(new java.net.URI(redirectUrl));
-
-            // Close the new tab after a delay
-            if (projectWindowId != null)
-                new ProcessBuilder("bash", "-c", "wmctrl -i -a " + projectWindowId).start();
-
-            Thread.sleep(2000); // Adjust the delay as needed
-            // Restore the original "always on top" state of all IntelliJ windows
-            for (Map.Entry<String, Boolean> entry : originalStates.entrySet()) {
-                if (entry.getValue()) {
-                    new ProcessBuilder("bash", "-c", "wmctrl -i -r " + entry.getKey() + " -b add,above").start();
-                } else {
-                    new ProcessBuilder("bash", "-c", "wmctrl -i -r " + entry.getKey() + " -b remove,above").start();
+            // Fall back to any IntelliJ window
+            if (targetWindowId == null) {
+                for (String line : windowLines) {
+                    if (line.contains("[") && (line.contains(".java") || line.contains(".kt"))) {
+                        targetWindowId = line.split("\\s+")[0];
+                        System.out.println("Found IntelliJ-like window: " + line);
+                        break;
+                    }
                 }
             }
-            if (projectWindowId != null)
-                new ProcessBuilder("bash", "-c", "wmctrl -i -a " + projectWindowId).start();
+
+            if (targetWindowId == null) {
+                System.err.println("Could not find IntelliJ window for project: " + projectName);
+                return;
+            }
+
+            // Save original window state
+            WindowState originalState = getWindowState(targetWindowId);
+
+            // Lock the window to the front
+            setWindowState(targetWindowId, true, false);
+
+            // Open URL
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(redirectUrl));
+
+            // Wait for IntelliJ to process the URI
+            Thread.sleep(500);
+
+            // Focus again with direct X11 command
+            new ProcessBuilder("bash", "-c", "xdotool windowactivate --sync " + targetWindowId).start().waitFor();
+
+            // Restore original window state
+            setWindowState(targetWindowId, originalState.isAbove, originalState.isBelow);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+    private static class WindowState {
+        boolean isAbove;
+        boolean isBelow;
+
+        WindowState(boolean isAbove, boolean isBelow) {
+            this.isAbove = isAbove;
+            this.isBelow = isBelow;
+        }
+    }
+
+    private static WindowState getWindowState(String windowId) throws IOException, InterruptedException {
+        Process aboveProcess = new ProcessBuilder("bash", "-c",
+                "xprop -id " + windowId + " _NET_WM_STATE 2>/dev/null | grep '_NET_WM_STATE_ABOVE'").start();
+        boolean isAbove = new BufferedReader(new InputStreamReader(aboveProcess.getInputStream())).readLine() != null;
+        aboveProcess.waitFor();
+
+        Process belowProcess = new ProcessBuilder("bash", "-c",
+                "xprop -id " + windowId + " _NET_WM_STATE 2>/dev/null | grep '_NET_WM_STATE_BELOW'").start();
+        boolean isBelow = new BufferedReader(new InputStreamReader(belowProcess.getInputStream())).readLine() != null;
+        belowProcess.waitFor();
+
+        return new WindowState(isAbove, isBelow);
+    }
+
+    private static void setWindowState(String windowId, boolean above, boolean below) throws IOException, InterruptedException {
+        new ProcessBuilder("bash", "-c", "wmctrl -i -r " + windowId + " -b remove,above").start().waitFor();
+        new ProcessBuilder("bash", "-c", "wmctrl -i -r " + windowId + " -b remove,below").start().waitFor();
+
+        if (above) new ProcessBuilder("bash", "-c", "wmctrl -i -r " + windowId + " -b add,above").start().waitFor();
+        if (below) new ProcessBuilder("bash", "-c", "wmctrl -i -r " + windowId + " -b add,below").start().waitFor();
+    }
+
+    private static void focusWindow(String windowId) throws IOException, InterruptedException {
+        new ProcessBuilder("bash", "-c", "wmctrl -i -a " + windowId).start().waitFor();
+        Thread.sleep(100);
     }
 
     private static boolean isValidProjectName(String projectName) {
