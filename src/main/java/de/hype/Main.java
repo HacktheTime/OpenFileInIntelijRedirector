@@ -29,6 +29,11 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException {
+        try {
+            UIManager.setLookAndFeel("com.sun.java.swing.plaf.gtk.GTKLookAndFeel");
+        } catch (Exception e) {
+            System.err.println("Failed to set GTK Look and Feel. Get blinded ig.");
+        }
         killPrevious();
         String tools = checkRequiredTools();
         addAutostartEntry();

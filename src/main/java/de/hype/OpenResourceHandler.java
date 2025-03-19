@@ -478,11 +478,6 @@ class OpenResourceHandler implements HttpHandler {
                                            String project, String line) {
         try {
             // Set system look and feel
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
 
             JFrame frame = new JFrame("Select Resource File");
             frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
