@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static de.hype.IntelijHandler.focusIntelliJWindow;
@@ -84,7 +85,7 @@ public class OpenHandler implements HttpHandler {
         String classFileNameRegex = ".*%s\\.(java|kt)$".formatted(Pattern.quote(className.substring(className.lastIndexOf('.') + 1)));
         String packageName = className.substring(0, className.lastIndexOf('.')).replace('.', '/');
 
-        try (Stream<Path> paths = Files.walk(projectPath)) {
+        try (Stream<Path> paths = Files.walk(projectPath).parallel()) {
             List<Path> matchingFiles = paths
                     .filter(Files::isRegularFile)
                     .filter(path -> {
@@ -93,7 +94,7 @@ public class OpenHandler implements HttpHandler {
                         if (pathString.matches("(?!.*/resources/).*/build/tmp/.*")) return false;
                         return true;
                     })
-                    .toList();
+                    .collect(Collectors.toList());
 
             for (Path file : matchingFiles) {
                 if (isCorrectPackage(file, packageName)) {
@@ -111,7 +112,7 @@ public class OpenHandler implements HttpHandler {
             List<String> lines = Files.readAllLines(file);
             for (String line : lines) {
                 if (line.startsWith("package ")) {
-                    String filePackage = line.substring(8).trim().replace('.', '/');
+                    String filePackage = line.substring(8).replace(";","").trim().replace('.', '/');
                     return filePackage.equals(packageName);
                 }
             }
