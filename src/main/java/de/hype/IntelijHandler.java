@@ -75,15 +75,7 @@ public class IntelijHandler {
                 }
                 if (targetWindow == null) return; //This means Error or sth.
             }
-            System.out.println("Targetted Order: ");
-            for (Window value : originalWindows.values()) {
-                System.out.println(value.getWindowName());
-            }
             restoreWindowOrder(originalWindows.values());
-            System.out.println("Current Order: ");
-            for (Window value : Window.getCurrentWindows()) {
-                System.out.println(value.getWindowName());
-            }
 
             for (Window currentWindow : currentWindows.values()) {
                 Window originalWindow = originalWindows.get(currentWindow.getId());
