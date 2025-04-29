@@ -28,7 +28,7 @@ public class IntelijHandler {
         focusIntelliJWindow(project, redirectUrl);
     }
 
-    static void focusIntelliJWindow(String projectName, String redirectUrl) {
+    static synchronized void focusIntelliJWindow(String projectName, String redirectUrl) {
         try {
             if (!isValidProjectName(projectName) || !isValidUrl(redirectUrl)) {
                 throw new IllegalArgumentException("Invalid project name or URL");
@@ -59,7 +59,7 @@ public class IntelijHandler {
             java.awt.Desktop.getDesktop().browse(new java.net.URI(redirectUrl));
 
             // Wait for IntelliJ to process the URI
-            Thread.sleep(3000);
+            Thread.sleep(10000);
 
             if (targetWindow == null) {
                 //This means Intelij will have been opened for it.
