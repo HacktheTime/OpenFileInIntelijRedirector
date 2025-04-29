@@ -79,16 +79,21 @@ public class OpenHandler implements HttpHandler {
             }
         }
 
-        private static String searchClassFile(String className, Path projectPath) {
-            projectPath = Paths.get(projectPath.toString().replaceFirst("^~", System.getProperty("user.home"))).toAbsolutePath().normalize();
-            String classFileName = className.substring(className.lastIndexOf('.') + 1) + ".java";
-            String packageName = className.substring(0, className.lastIndexOf('.')).replace('.', '/');
+    private static String searchClassFile(String className, Path projectPath) {
+        projectPath = Paths.get(projectPath.toString().replaceFirst("^~", System.getProperty("user.home"))).toAbsolutePath().normalize();
+        String classFileNameRegex = ".*%s\\.(java|kt)$".formatted(Pattern.quote(className.substring(className.lastIndexOf('.') + 1)));
+        String packageName = className.substring(0, className.lastIndexOf('.')).replace('.', '/');
 
-            try (Stream<Path> paths = Files.walk(projectPath)) {
-                List<Path> matchingFiles = paths
-                        .filter(Files::isRegularFile)
-                        .filter(path -> path.toString().endsWith(classFileName))
-                        .collect(Collectors.toList());
+        try (Stream<Path> paths = Files.walk(projectPath)) {
+            List<Path> matchingFiles = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        String pathString = path.toString();
+                        if (!pathString.matches(classFileNameRegex)) return false;
+                        if (pathString.matches("(?!.*/resources/).*/build/tmp/.*")) return false;
+                        return true;
+                    })
+                    .toList();
 
                 for (Path file : matchingFiles) {
                     if (isCorrectPackage(file, packageName)) {
@@ -101,18 +106,18 @@ public class OpenHandler implements HttpHandler {
             return null;
         }
 
-        private static boolean isCorrectPackage(Path file, String packageName) {
-            try {
-                List<String> lines = Files.readAllLines(file);
-                for (String line : lines) {
-                    if (line.startsWith("package ")) {
-                        String filePackage = line.substring(8, line.indexOf(';')).trim().replace('.', '/');
-                        return filePackage.equals(packageName);
-                    }
+    private static boolean isCorrectPackage(Path file, String packageName) {
+        try {
+            List<String> lines = Files.readAllLines(file);
+            for (String line : lines) {
+                if (line.startsWith("package ")) {
+                    String filePackage = line.substring(8).trim().replace('.', '/');
+                    return filePackage.equals(packageName);
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
             }
-            return false;
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+        return false;
     }
+}
