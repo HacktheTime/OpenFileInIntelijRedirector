@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static de.hype.Main.focusIntelliJWindow;
+import static de.hype.IntelijHandler.openFileInIntelliJ;
 import static de.hype.Main.showErrorPopup;
 
 class OpenResourceHandler implements HttpHandler {
@@ -263,10 +263,11 @@ class OpenResourceHandler implements HttpHandler {
 
         return pattern;
     }
+
     private Set<ResourceMatch> findResourcesByRegex(String regex, Path projectPath, boolean focusTestResource) throws IOException {
         projectPath = resolveProjectPath(projectPath);
         Set<ResourceMatch> allMatches = new HashSet<>();
-        
+
         // Define resource directories to search
         Map<ResourceType, List<Path>> resourceDirs = getResourceDirectories(projectPath);
         List<ResourceType> searchOrder = getSearchOrder(focusTestResource);
@@ -458,6 +459,7 @@ class OpenResourceHandler implements HttpHandler {
             }
         }
     }
+
     private List<ResourceType> getSearchOrder(boolean focusTestResource) {
         if (focusTestResource) {
             return Arrays.asList(
@@ -475,7 +477,7 @@ class OpenResourceHandler implements HttpHandler {
     }
 
     private void showResourceSelectionDialog(HttpExchange exchange, Set<ResourceMatch> matches,
-                                           String project, String line) {
+                                             String project, String line) {
         try {
             // Set system look and feel
 
@@ -525,24 +527,6 @@ class OpenResourceHandler implements HttpHandler {
                 ioEx.printStackTrace();
             }
         }
-    }
-
-    private void openFileInIntelliJ(HttpExchange exchange, String project, String path, String line) throws IOException {
-        String redirectUrl = "jetbrains://idea/navigate/reference?project=" + project + "&path=" + path;
-        if (line != null) {
-            redirectUrl += ":%d".formatted(Integer.parseInt(line) - 1);
-        }
-
-        // Send response to browser
-        String closeTabScript = "<html><body><script type='text/javascript'>window.open('" +
-                               redirectUrl + "', '_self'); window.close();</script></body></html>";
-        exchange.getResponseHeaders().set("Content-Type", "text/html");
-        exchange.sendResponseHeaders(200, closeTabScript.length());
-        OutputStream os = exchange.getResponseBody();
-        os.write(closeTabScript.getBytes());
-        os.close();
-
-        focusIntelliJWindow(project, redirectUrl);
     }
 
     private void sendError(HttpExchange exchange, int code, String message) throws IOException {
